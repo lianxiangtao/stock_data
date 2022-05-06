@@ -1,2 +1,3 @@
 stock_info_*.xlsx
+~stock_info_*.xlsx
 __pycache__/
