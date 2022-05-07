@@ -34,7 +34,6 @@ def get_stock_data_history(id, k_period):
         'klt': KLINES_CODE.get(k_period, '101'),
         'fqt': '1',
         'secid': f"{STOCK_MAEKET_CODE[id[:3]]}.{id}",  # 取id前两位判断market
-        # 'beg': '0',
         'end': '20500000',
         'lmt': 60  # 记录条数
         }
@@ -77,7 +76,7 @@ def cal_MA(x, days):
     for q in range(len(x)-days):
         ma = round(np.sum(x[q: q+days])/days ,2)
         res.append(ma)
-    res.extend(None for _ in range(len(x)-len(res)))
+    res.extend(np.nan for _ in range(len(x)-len(res)))
     return res
         
 
@@ -106,7 +105,7 @@ def main(stock_id, k_period='d'):
     df_history = pd.concat(stock_history_all, ignore_index=1)
 
     # excel 文件名
-    excel_path = f"stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
     writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
     df_stock_info.to_excel(writer, index=False, sheet_name='股票信息')
     df_history.to_excel(writer, index=False, sheet_name='股票明细')
@@ -115,8 +114,8 @@ def main(stock_id, k_period='d'):
 
 # 市场代码
 STOCK_MAEKET_CODE = {
-    '1': '600|601|603|605|688',  # 沪市
-    '0': '002|300',  # 深市/中小板
+    '1': '600|601|603|605|688|110|111|112|113|114|115|116|117|118|119',  # 沪市/110-120可转债
+    '0': '002|300|120|121|122|123|124|125|126|127|128|129',  # 002深市/300中小板/120-129可转债
     }
 STOCK_MAEKET_CODE = {q: k for k, v in STOCK_MAEKET_CODE.items() for q in v.split('|')}
 
@@ -124,8 +123,10 @@ FIELD_CURRENT_DAY_DICT = {
     'f50': '量比',
     'f57': '代码',
     'f58': '股名',
+    'f127': '行业'
 }
 
+# 一级指标
 FIELD_1_DICT = {
     # 'f1': '代码',
     # 'f2': '板块',
@@ -135,6 +136,7 @@ FIELD_1_DICT = {
     # 'f6': 'preKPrice',
 }
 
+# 二级指标
 FIELD_2_DICT = {
     'f51': '日期',
     'f52': '开盘',
@@ -160,5 +162,10 @@ KLINES_CODE = {
 
 # %%
 if __name__ == '__main__':
-    stock_id = ['002205', '002941', '600581', '600502', '601398', '603288', '688008', '300251']  # 股票代码 
+    stock_id = [
+        '002205', '002941', '600581', '600502','123136','128021','113595','111003','123027',
+        '123138','123072','127057','113597','127007','123134','113537','123135','128070',
+        '123039','113630','123140','123135','127057','113027','128132','128040','113626',
+        '113519','113618','123130'
+    ]  # 股票代码
     main(stock_id, k_period='d')
