@@ -64,7 +64,10 @@ def parse_history(js):
     df_detail['大于MA20'] = df_detail.apply(lambda x: 1 if x['收盘'] > x['MA20'] else 0, axis=1)
 
     df_detail['MA命中数'] = df_detail['大于MA5'] + df_detail['大于MA10'] + df_detail['大于MA20']
-    return df_detail
+
+    df_detail_common = df_detail[~df_detail['股名'].str.contains('^..转债')]
+    df_detail_convertible = df_detail[df_detail['股名'].str.contains('^..转债')]
+    return df_detail_common, df_detail_convertible
 
 def parse_current(js):
     res_info = json.loads(js)['data']
@@ -81,8 +84,9 @@ def cal_MA(x, days):
         
 
 def main(stock_id, k_period='d'):
-    stock_info_all = []
-    stock_history_all = []
+    stock_info_all = []  # 股票信息
+    stock_history_common_all = []  # 普通股票明细
+    stock_history_convertible_all = []  # 可转债明细
 
     for id in stock_id:
         time.sleep(0.1)
@@ -91,10 +95,11 @@ def main(stock_id, k_period='d'):
             res_history = get_stock_data_history(id, k_period)
             stock_info_current = parse_current(res_current)
             stock_name = stock_info_current['股名']
-            stock_history = parse_history(res_history)
+            stock_history_common, stock_history_convertible = parse_history(res_history)
             
             stock_info_all.append(stock_info_current)
-            stock_history_all.append(stock_history)
+            stock_history_common_all.append(stock_history_common)
+            stock_history_convertible_all.append(stock_history_convertible)
             
             print(f"========== {id} {stock_name} success ==========")
         except Exception:
@@ -102,13 +107,15 @@ def main(stock_id, k_period='d'):
             print(f"========== {id} {stock_name} ERROR ==========", exc_msg)
 
     df_stock_info = pd.DataFrame(stock_info_all)
-    df_history = pd.concat(stock_history_all, ignore_index=1)
+    df_history_common = pd.concat(stock_history_common_all, ignore_index=1)
+    df_history_convertible = pd.concat(stock_history_convertible_all, ignore_index=1)
 
     # excel 文件名
     excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
     writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
     df_stock_info.to_excel(writer, index=False, sheet_name='股票信息')
-    df_history.to_excel(writer, index=False, sheet_name='股票明细')
+    df_history_common.to_excel(writer, index=False, sheet_name='股票明细')
+    df_history_convertible.to_excel(writer, index=False, sheet_name='转债明细')
     writer.save()
     print('输出', excel_path)
 
