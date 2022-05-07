@@ -34,8 +34,9 @@ def get_stock_data_history(id, k_period):
         'klt': KLINES_CODE.get(k_period, '101'),
         'fqt': '1',
         'secid': f"{STOCK_MAEKET_CODE[id[:3]]}.{id}",  # 取id前两位判断market
-        'beg': '0',
-        'end': '20500000'
+        # 'beg': '0',
+        'end': '20500000',
+        'lmt': 60  # 记录条数
         }
     url = base_url + urljoin(params)
     res = requests.get(url).text
