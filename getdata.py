@@ -29,6 +29,7 @@ FIELD_CURRENT_DAY_DICT = {
     'f50': '量比',
     'f57': '代码',
     'f58': '股名',
+    'f71': '均价',
     'f127': '行业'
 }
 
@@ -64,10 +65,51 @@ KLINES_CODE = {
     'm': '103'  # 月
     }
 
+# 顺序优先级字段
+HiGHER_PRIORITY_COL = ['股名', 'MA命中数']
+
+# 某字段插入某字段后
+DICT_COL_BEHIND_COL = {
+    # key begind value
+    '均价': '最低'
+    }
+
+# %% start
+
 
 def urljoin(params: Dict) -> str:
     s = [f'{k}={v}' for k, v in params.items()]
     return "&".join(s)
+
+
+def sort_columns(columns: List[str], higher_priority_col: List[str]) -> DataFrame:
+    """
+    将优先级字段靠前展示
+
+    Args:
+        columns (List[str]): 初始字段列表.
+        higher_priority_col (List[str]): 优先级字段
+
+    Returns:
+        finally_col (List[str]): 最终字段列表.
+
+    """
+    finally_col = []
+    highest_priority_col = '日期'
+
+    # 优先级排序
+    finally_col.append(highest_priority_col)
+    for col in higher_priority_col:
+        finally_col.append(columns.pop(columns.index(col)))
+
+    finally_col.extend(columns)
+
+    # behind 排序
+    for bcol, fcol in DICT_COL_BEHIND_COL.items():
+        idx_fcol = columns.index(fcol)
+        columns.insert(idx_fcol+1, bcol)
+
+    return finally_col
 
 
 def get_stock_data_current(id: str) -> str:
@@ -107,6 +149,7 @@ def get_stock_data_history(id: str, k_period: str, limit: int) -> str:
     url = base_url + urljoin(params)
     res = requests.get(url).text
     return res
+
 
 def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     """解析K线历史数据，计算额外指标
@@ -208,6 +251,12 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     df_history_common = pd.concat(stock_history_common_all, ignore_index=True)
     df_history_convertible = pd.concat(stock_history_convertible_all, ignore_index=True)
 
+    # 列字段优先级排序
+    df_history_common = df_history_common[
+        sort_columns(df_history_common.columns.tolist(), HiGHER_PRIORITY_COL)]
+    df_history_convertible = df_history_convertible[
+        sort_columns(df_history_convertible.columns.tolist(), HiGHER_PRIORITY_COL)]
+
     # excel 文件名
     excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
     writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
@@ -221,9 +270,9 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
 # %% main
 if __name__ == '__main__':
     stock_id = [
-        '002205', '002941', '600581', '600502', '123136', '128021', '113595', '111003', '123027',
-        '123138', '123072', '127057', '113597', '127007', '123134', '113537', '123135', '128070',
-        '123039', '113630', '123140', '123135', '127057', '113027', '128132', '128040', '113626',
-        '113519', '113618', '123130'
+        '002205', '002941', '600581', '600502', '123136', '128021', '113595', '111003',
+        '123027', '123138', '123072', '127057', '113597', '127007', '123134', '113537',
+        '123135', '128070', '123039', '113630', '123140', '123135', '127057', '113027',
+        '128132', '128040', '113626', '113519', '113618', '123130'
     ]  # 股票代码
     main(stock_id, k_period='d')
