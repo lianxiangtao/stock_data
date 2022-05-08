@@ -1,4 +1,10 @@
-# %%
+# -*- coding: utf-8 -*-
+"""
+Created on Sun May  8 19:53:44 2022
+
+@author: lianxiangtao
+"""
+
 import datetime
 import json
 import time
@@ -59,10 +65,10 @@ KLINES_CODE = {
     }
 
 
-
 def urljoin(params: Dict) -> str:
     s = [f'{k}={v}' for k, v in params.items()]
     return "&".join(s)
+
 
 def get_stock_data_current(id: str) -> str:
     '''获取股票当前信息'''
@@ -77,6 +83,7 @@ def get_stock_data_current(id: str) -> str:
     res = requests.get(url).text
     return res
 
+
 def get_stock_data_history(id: str, k_period: str, limit: int) -> str:
     """获取股票历史数据
 
@@ -86,7 +93,7 @@ def get_stock_data_history(id: str, k_period: str, limit: int) -> str:
 
     Returns:
         str: k线json数据
-    """    
+    """
     base_url = 'https://push2his.eastmoney.com/api/qt/stock/kline/get?'
     params = {
         'fields1': ",".join(FIELD_1_DICT.keys()),
@@ -110,27 +117,30 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     Returns:
         df_detail_common (DataFrame): 普通股票明细
         df_detail_convertible(DataFrame): 可转债明细
-    """    
+    """
     res_info = json.loads(js)['data']
     # 将K线历史数据模块剔除出 res_info 并赋值给 res_detail
     res_detail = [q.split(',') for q in res_info.pop('klines')]
     # FIELD_2_DICT key排序
     dict_sort = dict(sorted(FIELD_2_DICT.items(),
-        key=lambda x: int(x[0].replace('f', ''))))
+                            key=lambda x: int(x[0].replace('f', ''))))
     df_detail = pd.DataFrame(res_detail, columns=dict_sort.values())  # type: ignore
-    
+
     df_detail = df_detail[['日期']].join(df_detail.drop(['日期'], axis=1).astype(float))
     df_detail['振幅值'] = df_detail['最高'] - df_detail['最低']
     df_detail = df_detail.sort_values(by='日期', ascending=False, ignore_index=True)
     df_detail['股名'] = res_info['name']
-    
+
     df_detail['MA5'] = cal_MA(df_detail['收盘'], 5)
     df_detail['MA10'] = cal_MA(df_detail['收盘'], 10)
     df_detail['MA20'] = cal_MA(df_detail['收盘'], 20)
-    
-    df_detail['大于MA5'] = df_detail.apply(lambda x: 1 if x['收盘'] > x['MA5'] else 0, axis=1)
-    df_detail['大于MA10'] = df_detail.apply(lambda x: 1 if x['收盘'] > x['MA10'] else 0, axis=1)
-    df_detail['大于MA20'] = df_detail.apply(lambda x: 1 if x['收盘'] > x['MA20'] else 0, axis=1)
+
+    df_detail['大于MA5'] = df_detail.apply(
+        lambda x: 1 if x['收盘'] > x['MA5'] else 0, axis=1)
+    df_detail['大于MA10'] = df_detail.apply(
+        lambda x: 1 if x['收盘'] > x['MA10'] else 0, axis=1)
+    df_detail['大于MA20'] = df_detail.apply(
+        lambda x: 1 if x['收盘'] > x['MA20'] else 0, axis=1)
 
     df_detail['MA命中数'] = df_detail['大于MA5'] + df_detail['大于MA10'] + df_detail['大于MA20']
 
@@ -138,10 +148,12 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     df_detail_convertible = df_detail[df_detail['股名'].str.contains('^..转债')]
     return df_detail_common, df_detail_convertible
 
+
 def parse_current(js: str) -> Dict:
     res_info = json.loads(js)['data']
     res_info = {FIELD_CURRENT_DAY_DICT[k]: v for k, v in res_info.items()}
     return res_info
+
 
 def cal_MA(x: Series, days: int) -> List:
     """_summary_
@@ -152,14 +164,14 @@ def cal_MA(x: Series, days: int) -> List:
 
     Returns:
         List: _description_
-    """    
+    """
     res = []
     for q in range(len(x)-days):
-        ma = round(np.sum(x[q: q+days])/days ,2)
+        ma = round(np.sum(x[q: q+days])/days, 2)
         res.append(ma)
     res.extend(np.nan for _ in range(len(x)-len(res)))
     return res
-        
+
 
 def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     """主程序
@@ -168,7 +180,7 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
         stock_id (List[str]): 股票代码
         k_period (str, optional): K线周期选项. Defaults to 'd'.
         limit (int, optional): 近n天记录数. Defaults to 60.
-    """    
+    """
     stock_info_all = []  # 股票信息
     stock_history_common_all = []  # 普通股票明细
     stock_history_convertible_all = []  # 可转债明细
@@ -181,11 +193,11 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
             stock_info_current = parse_current(res_current)
             stock_name = stock_info_current['股名']
             stock_history_common, stock_history_convertible = parse_history(res_history)
-            
+
             stock_info_all.append(stock_info_current)
             stock_history_common_all.append(stock_history_common)
             stock_history_convertible_all.append(stock_history_convertible)
-            
+
             print(f"========== {id} {stock_name} success ==========")
         except Exception:
             exc_msg = traceback.format_exc()
@@ -206,12 +218,12 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     print('--->', excel_path)
 
 
-# %%
+# %% main
 if __name__ == '__main__':
     stock_id = [
         '002205', '002941', '600581', '600502', '123136', '128021', '113595', '111003', '123027',
         '123138', '123072', '127057', '113597', '127007', '123134', '113537', '123135', '128070',
         '123039', '113630', '123140', '123135', '127057', '113027', '128132', '128040', '113626',
-        '113519', '113618', '123130' 
+        '113519', '113618', '123130'
     ]  # 股票代码
     main(stock_id, k_period='d')
