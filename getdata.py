@@ -7,6 +7,7 @@ Created on Sun May  8 19:53:44 2022
 
 import datetime
 import json
+import sys
 import time
 import traceback
 
@@ -66,13 +67,15 @@ KLINES_CODE = {
     }
 
 # 顺序优先级字段
-HiGHER_PRIORITY_COL = ['股名', 'MA命中数']
+HIGHER_PRIORITY_COL = ['股名', 'MA命中数']
 
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
     # key begind value
     '均价': '最低'
     }
+
+IS_DEBUG = True if sys.gettrace() else False
 
 # %% start
 
@@ -106,8 +109,9 @@ def sort_columns(columns: List[str], higher_priority_col: List[str]) -> DataFram
 
     # behind 排序
     for bcol, fcol in DICT_COL_BEHIND_COL.items():
-        idx_fcol = columns.index(fcol)
-        columns.insert(idx_fcol+1, bcol)
+        idx_fcol = finally_col.index(fcol)
+        # 删除 finally_col 原有 bcol, fcol 后插入 bcol
+        finally_col.insert(idx_fcol+1, finally_col.pop(finally_col.index(bcol)))
 
     return finally_col
 
@@ -189,6 +193,15 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
 
     df_detail_common = df_detail[~df_detail['股名'].str.contains('^..转债')]
     df_detail_convertible = df_detail[df_detail['股名'].str.contains('^..转债')]
+
+    # 计算均价, 股票均价=成交额/100/成交量，转债均价=成交额/10/成交量
+    df_detail_common['均价'] = (
+        df_detail_common['成交额'] / 100 / df_detail_common['成交量']).apply(
+            lambda x: round(x, 2))
+    df_detail_convertible['均价'] = (
+        df_detail_convertible['成交额'] / 10 / df_detail_convertible['成交量']).apply(
+            lambda x: round(x, 2))
+
     return df_detail_common, df_detail_convertible
 
 
@@ -253,9 +266,9 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
 
     # 列字段优先级排序
     df_history_common = df_history_common[
-        sort_columns(df_history_common.columns.tolist(), HiGHER_PRIORITY_COL)]
+        sort_columns(df_history_common.columns.tolist(), HIGHER_PRIORITY_COL)]
     df_history_convertible = df_history_convertible[
-        sort_columns(df_history_convertible.columns.tolist(), HiGHER_PRIORITY_COL)]
+        sort_columns(df_history_convertible.columns.tolist(), HIGHER_PRIORITY_COL)]
 
     # excel 文件名
     excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
@@ -275,4 +288,8 @@ if __name__ == '__main__':
         '123135', '128070', '123039', '113630', '123140', '123135', '127057', '113027',
         '128132', '128040', '113626', '113519', '113618', '123130'
     ]  # 股票代码
-    main(stock_id, k_period='d')
+
+    if not IS_DEBUG:  # 判断是否为 debug 模式运行
+        main(stock_id, k_period='d')
+    else:
+        main(stock_id[:5], k_period='d')
