@@ -85,7 +85,7 @@ def urljoin(params: Dict) -> str:
     return "&".join(s)
 
 
-def sort_columns(columns: List[str], higher_priority_col: List[str]) -> DataFrame:
+def sort_columns(columns: List[str], higher_priority_col: List[str]) -> List[str]:
     """
     将优先级字段靠前展示
 
