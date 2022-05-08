@@ -5,9 +5,9 @@
 ## 环境
 
 ```
-python 3.8.3
-numpy 1.18.5
-pandas 1.0.5
+python>=3.8
+numpy==1.20.3
+panda==1.3.4
 ```
 
 ## 使用方法
