@@ -77,7 +77,7 @@ def get_stock_data_current(id: str) -> str:
     res = requests.get(url).text
     return res
 
-def get_stock_data_history(id: str, k_period: str) -> str:
+def get_stock_data_history(id: str, k_period: str, limit: int) -> str:
     """获取股票历史数据
 
     Args:
@@ -95,7 +95,7 @@ def get_stock_data_history(id: str, k_period: str) -> str:
         'fqt': '1',
         'secid': f"{STOCK_MAEKET_CODE[id[:3]]}.{id}",  # 取id前两位判断market
         'end': '20500000',
-        'lmt': 60  # 记录条数
+        'lmt': limit  # 近n天记录条数
         }
     url = base_url + urljoin(params)
     res = requests.get(url).text
@@ -161,12 +161,13 @@ def cal_MA(x: Series, days: int) -> List:
     return res
         
 
-def main(stock_id: List[str], k_period: str ='d'):
+def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     """主程序
 
     Args:
         stock_id (List[str]): 股票代码
         k_period (str, optional): K线周期选项. Defaults to 'd'.
+        limit (int, optional): 近n天记录数. Defaults to 60.
     """    
     stock_info_all = []  # 股票信息
     stock_history_common_all = []  # 普通股票明细
@@ -176,7 +177,7 @@ def main(stock_id: List[str], k_period: str ='d'):
         time.sleep(0.1)
         try:
             res_current = get_stock_data_current(id)
-            res_history = get_stock_data_history(id, k_period)
+            res_history = get_stock_data_history(id, k_period, limit)
             stock_info_current = parse_current(res_current)
             stock_name = stock_info_current['股名']
             stock_history_common, stock_history_convertible = parse_history(res_history)
@@ -202,7 +203,7 @@ def main(stock_id: List[str], k_period: str ='d'):
     df_history_common.to_excel(writer, index=False, sheet_name='股票明细')
     df_history_convertible.to_excel(writer, index=False, sheet_name='转债明细')
     writer.save()
-    print('输出', excel_path)
+    print('--->', excel_path)
 
 
 # %%
