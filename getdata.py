@@ -67,7 +67,7 @@ KLINES_CODE = {
     }
 
 # 顺序优先级字段
-HIGHER_PRIORITY_COL = ['股名', 'MA命中数']
+HIGHER_PRIORITY_COL = ['日期', '股名', 'MA命中数']
 
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
@@ -98,10 +98,8 @@ def sort_columns(columns: List[str], higher_priority_col: List[str]) -> DataFram
 
     """
     finally_col = []
-    highest_priority_col = '日期'
 
     # 优先级排序
-    finally_col.append(highest_priority_col)
     for col in higher_priority_col:
         finally_col.append(columns.pop(columns.index(col)))
 
@@ -241,8 +239,13 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     stock_history_common_all = []  # 普通股票明细
     stock_history_convertible_all = []  # 可转债明细
 
+    n = 0
     for id in stock_id:
+        n += 1
+        if n % 50 == 0:
+            time.sleep(10)
         time.sleep(0.1)
+
         try:
             res_current = get_stock_data_current(id)
             res_history = get_stock_data_history(id, k_period, limit)
