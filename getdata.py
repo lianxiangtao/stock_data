@@ -21,7 +21,7 @@ from pandas.core.series import Series
 # 市场代码
 STOCK_MAEKET_CODE = {
     '1': '600|601|603|605|688|110|111|112|113|114|115|116|117|118|119',  # 沪市/110-120可转债
-    '0': '000|002|003|300|120|121|122|123|124|125|126|127|128|129',  # 002深市/300中小板/120-129可转债
+    '0': '000|001|002|003|300|120|121|122|123|124|125|126|127|128|129',  # 002深市/300中小板/120-129可转债
     }
 STOCK_MAEKET_CODE = {q: k for k, v in STOCK_MAEKET_CODE.items() for q in v.split('|')}
 
@@ -36,7 +36,7 @@ FIELD_CURRENT_DAY_DICT = {
 
 # 一级指标
 FIELD_1_DICT = {
-    # 'f1': '代码',
+    'f1': '代码',
     # 'f2': '板块',
     'f3': '股名',
     # 'f4': 'decimal',
@@ -67,7 +67,7 @@ KLINES_CODE = {
     }
 
 # 顺序优先级字段
-HIGHER_PRIORITY_COL = ['日期', '股名', 'MA命中数']
+HIGHER_PRIORITY_COL = ['日期', '股名', '行业', 'MA命中数']
 
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
@@ -98,15 +98,21 @@ def sort_columns(columns: List[str], higher_priority_col: List[str]) -> List[str
 
     # 优先级排序
     for col in higher_priority_col:
-        finally_col.append(columns.pop(columns.index(col)))
+        try:
+            finally_col.append(columns.pop(columns.index(col)))
+        except Exception:
+            pass
 
     finally_col.extend(columns)
 
     # behind 排序
     for bcol, fcol in DICT_COL_BEHIND_COL.items():
-        idx_fcol = finally_col.index(fcol)
-        # 删除 finally_col 原有 bcol, fcol 后插入 bcol
-        finally_col.insert(idx_fcol+1, finally_col.pop(finally_col.index(bcol)))
+        try:
+            idx_fcol = finally_col.index(fcol)
+            # 删除 finally_col 原有 bcol, fcol 后插入 bcol
+            finally_col.insert(idx_fcol+1, finally_col.pop(finally_col.index(bcol)))
+        except:
+            pass
 
     return finally_col
 
@@ -202,6 +208,8 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
 
 def parse_current(js: str) -> Dict:
     res_info = json.loads(js)['data']
+    if 'f57' in res_info.keys():
+        res_info['f57'] = str(res_info['f57'])
     res_info = {FIELD_CURRENT_DAY_DICT[k]: v for k, v in res_info.items()}
     return res_info
 
@@ -264,6 +272,10 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     df_history_common = pd.concat(stock_history_common_all, ignore_index=True)
     df_history_convertible = pd.concat(stock_history_convertible_all, ignore_index=True)
 
+    # 股票信息关联至明细中
+    df_history_common = df_history_common.merge(
+        df_stock_info[['股名', '行业']], how='left', on=['股名'])
+
     # 列字段优先级排序
     df_history_common = df_history_common[
         sort_columns(df_history_common.columns.tolist(), HIGHER_PRIORITY_COL)]
@@ -290,8 +302,14 @@ if __name__ == '__main__':
         '002699', '000815', '002761', '123136', '111002', '603123', '002717', '000968',
         '002613', '002550', '000722', '600062', '600510', '000514', '000797', '002060',
         '002059', '600938', '123039', '603696', '002104', '603363', '003040', '601666',
-        '600988', '601888', '601899', '601007', '113027', '601225', '600381', '603215'
+        '600988', '601888', '601899', '601007', '113027', '601225', '600381', '603215',
+        '600313', '603648', '605567', '000779', '002307', '000572', '002657', '001227',
+        '000514', '000965', '000736', '000893', '002330', '600199', '002945', '002603',
+        '002162', '002822', '600756', '000506', '000558', '000978', '127027', '113541',
+        '123130', '128107', '113599', '128036', '113597', '113519', '123057', '127043',
+        '113030', '128090', '128082', '110044', '123073', '128044', '123064', '110064'
     ]  # 股票代码
+    stock_id = list(set(stock_id))
 
     if not IS_DEBUG:  # 判断是否为 debug 模式运行
         main(stock_id, k_period='d')
