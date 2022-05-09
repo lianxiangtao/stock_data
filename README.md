@@ -5,7 +5,7 @@
 ## 环境
 
 ```text
-python>=3.8
+python>=3.6
 numpy==1.20.3
 panda==1.3.4
 ```
