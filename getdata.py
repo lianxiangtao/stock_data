@@ -67,7 +67,7 @@ KLINES_CODE = {
     }
 
 # 顺序优先级字段
-HIGHER_PRIORITY_COL = ['日期', '股名', '行业', 'MA命中数']
+HIGHER_PRIORITY_COL = ['日期', '股名', '行业', 'MA命中数', '量比']
 
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
@@ -272,9 +272,11 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     df_history_common = pd.concat(stock_history_common_all, ignore_index=True)
     df_history_convertible = pd.concat(stock_history_convertible_all, ignore_index=True)
 
-    # 股票信息关联至明细中
+    # 股票信息关联至明细中n
     df_history_common = df_history_common.merge(
-        df_stock_info[['股名', '行业']], how='left', on=['股名'])
+        df_stock_info[['股名', '行业', '量比']], how='left', on=['股名'])
+    df_history_convertible = df_history_convertible.merge(
+        df_stock_info[['股名', '行业', '量比']], how='left', on=['股名'])
 
     # 列字段优先级排序
     df_history_common = df_history_common[
