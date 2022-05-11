@@ -72,7 +72,9 @@ HIGHER_PRIORITY_COL = ['日期', '股名', '行业', 'MA命中数', '量比']
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
     # key begind value
-    '均价': '最低'
+    '均价': '最低',
+    '下跌极值': '振幅值',
+    '上涨极值': '下跌极值'
     }
 
 IS_DEBUG = True if sys.gettrace() else False
@@ -191,6 +193,8 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
         lambda x: 1 if x['收盘'] > x['MA20'] else 0, axis=1)
 
     df_detail['MA命中数'] = df_detail['大于MA5'] + df_detail['大于MA10'] + df_detail['大于MA20']
+    df_detail['下跌极值'] = (df_detail['最低'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100
+    df_detail['上涨极值'] = (df_detail['最高'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100
 
     df_detail_common = df_detail[~df_detail['股名'].str.contains('^..转债')]
     df_detail_convertible = df_detail[df_detail['股名'].str.contains('^..转债')]
@@ -309,7 +313,8 @@ if __name__ == '__main__':
         '000514', '000965', '000736', '000893', '002330', '600199', '002945', '002603',
         '002162', '002822', '600756', '000506', '000558', '000978', '127027', '113541',
         '123130', '128107', '113599', '128036', '113597', '113519', '123057', '127043',
-        '113030', '128090', '128082', '110044', '123073', '128044', '123064', '110064'
+        '113030', '128090', '128082', '110044', '123073', '128044', '123064', '110064',
+        '601579', '000506', '000701', '123143', '123048', '123052', '123071'
     ]  # 股票代码
     stock_id = list(set(stock_id))
 
