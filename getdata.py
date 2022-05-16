@@ -67,18 +67,22 @@ KLINES_CODE = {
     }
 
 # 顺序优先级字段
-HIGHER_PRIORITY_COL = ['日期', '股名', '行业', 'MA命中数', '量比']
+HIGHER_PRIORITY_COL = [
+    '日期', '股名', '行业', '开盘', '收盘', '最高', '最低', '均价','涨跌幅','涨跌额','振幅',
+    '振幅%','振幅值', '下跌极值%', '上涨极值%', '下跌极值', '上涨极值', 'MA命中数', '大于MA5',
+    '大于MA10','大于MA20', 'MA5', 'MA10', 'MA20', '量比','换手率','成交量','成交额' ]
 
 # 某字段插入某字段后
 DICT_COL_BEHIND_COL = {
     # key begind value
-    '均价': '最低',
-    '下跌极值(%)': '振幅值',
-    '上涨极值(%)': '下跌极值(%)',
-    '下跌极值-分子': '上涨极值(%)',
-    '上涨极值-分子': '下跌极值-分子',
-    'D30涨跌幅': '涨跌幅',
-    'D60涨跌幅': 'D30涨跌幅'
+
+    # '均价': '最低',
+    # '下跌极值(%)': '振幅值',
+    # '上涨极值(%)': '下跌极值(%)',
+    # '下跌极值-分子': '上涨极值(%)',
+    # '上涨极值-分子': '下跌极值-分子',
+    # 'D30涨跌幅': '涨跌幅',
+    # 'D60涨跌幅': 'D30涨跌幅'
     }
 
 IS_DEBUG = True if sys.gettrace() else False
@@ -184,18 +188,25 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     df_detail = pd.DataFrame(res_detail, columns=dict_sort.values())  # type: ignore
 
     df_detail = df_detail[['日期']].join(df_detail.drop(['日期'], axis=1).astype(float))
+    df_detail['振幅值'] = (df_detail['最高'] - df_detail['最低']).apply(lambda x: round(x, 2))
+    df_detail['振幅%'] = ((df_detail['最高'] - df_detail['最低'])/df_detail['最低']*100).apply(lambda x: round(x, 2))
+
     df_detail = df_detail.sort_values(by='日期', ascending=False, ignore_index=True)
     df_detail['股名'] = res_info['name']
-
-    df_detail['振幅值'] = (df_detail['最高'] - df_detail['最低']).apply(lambda x: round(x, 2))
-    df_detail['振幅值%'] = ((df_detail['最高'] - df_detail['最低'])/df_detail['最低']).apply(lambda x: round(x, 2))
-
-    df_detail['近5天振幅均值'] = cal_MA(df_detail['振幅值'], 5)
-    df_detail['近5天振幅比%均值'] = cal_MA(df_detail['振幅值%'], 5)
 
     df_detail['MA5'] = cal_MA(df_detail['收盘'], 5)
     df_detail['MA10'] = cal_MA(df_detail['收盘'], 10)
     df_detail['MA20'] = cal_MA(df_detail['收盘'], 20)
+    df_detail['3天振幅'] = cal_MA(df_detail['振幅值'], 3)
+
+    df_detail['5天振幅'] = cal_MA(df_detail['振幅值'], 5)
+    df_detail['10天振幅'] = cal_MA(df_detail['振幅值'], 10)
+    df_detail['20天振幅'] = cal_MA(df_detail['振幅值'], 20)
+    df_detail['30天振幅'] = cal_MA(df_detail['振幅值'], 30)
+    df_detail['5天振幅%'] = cal_MA(df_detail['振幅%'], 5)
+    df_detail['10天振幅%'] = cal_MA(df_detail['振幅%'], 10)
+    df_detail['20天振幅%'] = cal_MA(df_detail['振幅%'], 20)
+    df_detail['30天振幅%'] = cal_MA(df_detail['振幅%'], 30)
 
     df_detail['大于MA5'] = df_detail.apply(
         lambda x: 1 if x['收盘'] > x['MA5'] else 0, axis=1)
@@ -205,12 +216,17 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
         lambda x: 1 if x['收盘'] > x['MA20'] else 0, axis=1)
 
     df_detail['MA命中数'] = df_detail['大于MA5'] + df_detail['大于MA10'] + df_detail['大于MA20']
-    df_detail['下跌极值(%)'] = ((df_detail['最低'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100).apply(lambda x: round(x, 2))
-    df_detail['上涨极值(%)'] = ((df_detail['最高'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100).apply(lambda x: round(x, 2))
-    df_detail['下跌极值-分子'] = (df_detail['最低'] - df_detail['收盘'].shift(-1)).apply(lambda x: round(x, 2))
-    df_detail['上涨极值-分子'] = (df_detail['最高'] - df_detail['收盘'].shift(-1)).apply(lambda x: round(x, 2))
-    df_detail['D30涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-30))/df_detail['收盘'].shift(-30)).apply(lambda x: round(x, 2))
-    df_detail['D60涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-60))/df_detail['收盘'].shift(-60)).apply(lambda x: round(x, 2))
+    df_detail['下跌极值%'] = ((df_detail['最低'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100).apply(lambda x: round(x, 2))
+    df_detail['上涨极值%'] = ((df_detail['最高'] - df_detail['收盘'].shift(-1))/df_detail['收盘'].shift(-1)*100).apply(lambda x: round(x, 2))
+    df_detail['下跌极值'] = (df_detail['最低'] - df_detail['收盘'].shift(-1)).apply(lambda x: round(x, 2))
+    df_detail['上涨极值'] = (df_detail['最高'] - df_detail['收盘'].shift(-1)).apply(lambda x: round(x, 2))
+    df_detail['D3涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-3))/df_detail['收盘'].shift(-3)*100).apply(lambda x: round(x, 2))
+    df_detail['D5涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-5))/df_detail['收盘'].shift(-5)*100).apply(lambda x: round(x, 2))
+    df_detail['D10涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-10))/df_detail['收盘'].shift(-10)*100).apply(lambda x: round(x, 2))
+    df_detail['D15涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-15))/df_detail['收盘'].shift(-15)*100).apply(lambda x: round(x, 2))
+    df_detail['D20涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-20))/df_detail['收盘'].shift(-20)*100).apply(lambda x: round(x, 2))
+    df_detail['D30涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-30))/df_detail['收盘'].shift(-30)*100).apply(lambda x: round(x, 2))
+    df_detail['D60涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-60))/df_detail['收盘'].shift(-60)*100).apply(lambda x: round(x, 2))
 
     df_detail_common = df_detail[~df_detail['股名'].str.contains(r'^..转债|转\d+')]
     df_detail_convertible = df_detail[df_detail['股名'].str.contains(r'^..转债|转\d+')]
@@ -311,7 +327,8 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
         sort_columns(df_history_convertible.columns.tolist(), HIGHER_PRIORITY_COL)]
 
     # excel 文件名
-    excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    # excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    excel_path = rf"/Users/farfar/Library/Mobile Documents/com~apple~Numbers/Documents/{datetime.datetime.now().strftime('%m%d%Y')}stock.xlsx"
     writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
     df_stock_info.to_excel(writer, index=False, sheet_name='股票信息')
     df_history_common.to_excel(writer, index=False, sheet_name='股票明细')
