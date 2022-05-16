@@ -1,3 +1,6 @@
 stock_info_*.xlsx
 ~$stock_info_*.xlsx
 __pycache__/
+news_spider/
+.vscode/
+qrcode/

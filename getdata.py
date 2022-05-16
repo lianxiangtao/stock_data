@@ -21,7 +21,7 @@ from pandas.core.series import Series
 # 市场代码
 STOCK_MAEKET_CODE = {
     '1': '600|601|603|605|688|110|111|112|113|114|115|116|117|118|119',  # 沪市/110-120可转债
-    '0': '000|001|002|003|300|120|121|122|123|124|125|126|127|128|129',  # 002深市/300中小板/120-129可转债
+    '0': '000|001|002|003|300|301|120|121|122|123|124|125|126|127|128|129',  # 002深市/300中小板/120-129可转债
     }
 STOCK_MAEKET_CODE = {q: k for k, v in STOCK_MAEKET_CODE.items() for q in v.split('|')}
 
@@ -82,6 +82,9 @@ DICT_COL_BEHIND_COL = {
     }
 
 IS_DEBUG = True if sys.gettrace() else False
+
+DF_INDUSTRY = pd.read_excel('分类.xlsx', sheet_name='股票题材复盘').rename(columns={'股票': '股名'})
+DF_INDUSTRY_CONVERTIBLE = pd.read_excel('分类.xlsx', sheet_name='转债分类').rename(columns={'转债': '股名'})
 
 def urljoin(params: Dict) -> str:
     s = [f'{k}={v}' for k, v in params.items()]
@@ -181,9 +184,14 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     df_detail = pd.DataFrame(res_detail, columns=dict_sort.values())  # type: ignore
 
     df_detail = df_detail[['日期']].join(df_detail.drop(['日期'], axis=1).astype(float))
-    df_detail['振幅值'] = df_detail['最高'] - df_detail['最低']
     df_detail = df_detail.sort_values(by='日期', ascending=False, ignore_index=True)
     df_detail['股名'] = res_info['name']
+
+    df_detail['振幅值'] = (df_detail['最高'] - df_detail['最低']).apply(lambda x: round(x, 2))
+    df_detail['振幅值%'] = ((df_detail['最高'] - df_detail['最低'])/df_detail['最低']).apply(lambda x: round(x, 2))
+
+    df_detail['近5天振幅均值'] = cal_MA(df_detail['振幅值'], 5)
+    df_detail['近5天振幅比%均值'] = cal_MA(df_detail['振幅值%'], 5)
 
     df_detail['MA5'] = cal_MA(df_detail['收盘'], 5)
     df_detail['MA10'] = cal_MA(df_detail['收盘'], 10)
@@ -204,8 +212,8 @@ def parse_history(js: str) -> Tuple[DataFrame, DataFrame]:
     df_detail['D30涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-30))/df_detail['收盘'].shift(-30)).apply(lambda x: round(x, 2))
     df_detail['D60涨跌幅'] = ((df_detail['收盘'] - df_detail['收盘'].shift(-60))/df_detail['收盘'].shift(-60)).apply(lambda x: round(x, 2))
 
-    df_detail_common = df_detail[~df_detail['股名'].str.contains('^..转债')]
-    df_detail_convertible = df_detail[df_detail['股名'].str.contains('^..转债')]
+    df_detail_common = df_detail[~df_detail['股名'].str.contains(r'^..转债|转\d+')]
+    df_detail_convertible = df_detail[df_detail['股名'].str.contains(r'^..转债|转\d+')]
 
     # 计算均价, 股票均价=成交额/100/成交量，转债均价=成交额/10/成交量
     df_detail_common['均价'] = (
@@ -284,11 +292,17 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
     df_history_common = pd.concat(stock_history_common_all, ignore_index=True)
     df_history_convertible = pd.concat(stock_history_convertible_all, ignore_index=True)
 
-    # 股票信息关联至明细中n
+    # 股票信息关联至明细中
     df_history_common = df_history_common.merge(
         df_stock_info[['股名', '行业', '量比']], how='left', on=['股名'])
     df_history_convertible = df_history_convertible.merge(
         df_stock_info[['股名', '行业', '量比']], how='left', on=['股名'])
+
+    # 外部文件关联至明细中
+    df_history_common = df_history_common.merge(
+        DF_INDUSTRY, how='left', on=['股名'])
+    df_history_convertible = df_history_convertible.drop(['行业'], axis=1).merge(
+        DF_INDUSTRY_CONVERTIBLE, how='left', on=['股名'])
 
     # 列字段优先级排序
     df_history_common = df_history_common[
@@ -324,7 +338,8 @@ if __name__ == '__main__':
         '113030', '128090', '128082', '110044', '123073', '128044', '123064', '110064',
         '601579', '000506', '000701', '123143', '123048', '123052', '123071', '600448',
         '600689', '002693', '000632', '000701', '301098', '000929', '603066', '002040',
-        '601838', '600190', '002807', '000582',
+        '601838', '600190', '002807', '000582', '603963', '002828', '000926', '601633',
+        '000957'
     ]  # 股票代码
     stock_id = list(set(stock_id))
 
