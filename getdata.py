@@ -19,6 +19,9 @@ from pandas.core.frame import DataFrame
 from pandas.core.series import Series
 from sync import Sync_qq_docs
 
+# 保存路径
+EXCEL_PATH = rf"/Users/farfar/Library/Mobile Documents/com~apple~Numbers/Documents/{datetime.datetime.now().strftime('%m%d%Y')}stock.xlsx"
+
 # 市场代码
 STOCK_MAEKET_CODE = {
     '1': '600|601|603|605|688|110|111|112|113|114|115|116|117|118|119',  # 沪市/110-120可转债
@@ -329,13 +332,12 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
 
     # excel 文件名
     # excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
-    excel_path = rf"/Users/farfar/Library/Mobile Documents/com~apple~Numbers/Documents/{datetime.datetime.now().strftime('%m%d%Y')}stock.xlsx"
-    writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
+    writer = pd.ExcelWriter(EXCEL_PATH)  # 创建 excel 对象
     df_stock_info.to_excel(writer, index=False, sheet_name='股票信息')
     df_history_common.to_excel(writer, index=False, sheet_name='股票明细')
     df_history_convertible.to_excel(writer, index=False, sheet_name='转债明细')
     writer.save()
-    print('--->', excel_path)
+    print('--->', EXCEL_PATH)
 
 
 if __name__ == '__main__':
