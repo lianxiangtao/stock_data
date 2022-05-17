@@ -17,6 +17,7 @@ import requests
 from typing import List, Dict, Sequence, Tuple, Union, Optional, Literal
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
+from sync import Sync_qq_docs
 
 # 市场代码
 STOCK_MAEKET_CODE = {
@@ -364,3 +365,6 @@ if __name__ == '__main__':
         main(stock_id, k_period='d', limit=90)
     else:
         main(stock_id[:5], k_period='d')
+
+    process_sync = Sync_qq_docs()
+    process_sync.start_sync()
