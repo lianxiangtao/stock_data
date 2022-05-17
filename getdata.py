@@ -17,6 +17,10 @@ import requests
 from typing import List, Dict, Sequence, Tuple, Union, Optional, Literal
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
+from sync import Sync_qq_docs
+
+# 保存路径
+EXCEL_PATH = rf"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
 
 # 市场代码
 STOCK_MAEKET_CODE = {
@@ -311,13 +315,13 @@ def main(stock_id: List[str], k_period: str = 'd', limit: int = 60):
         sort_columns(df_history_convertible.columns.tolist(), HIGHER_PRIORITY_COL)]
 
     # excel 文件名
-    excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
-    writer = pd.ExcelWriter(excel_path)  # 创建 excel 对象
+    # excel_path = f"result/stock_info_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    writer = pd.ExcelWriter(EXCEL_PATH)  # 创建 excel 对象
     df_stock_info.to_excel(writer, index=False, sheet_name='股票信息')
     df_history_common.to_excel(writer, index=False, sheet_name='股票明细')
     df_history_convertible.to_excel(writer, index=False, sheet_name='转债明细')
     writer.save()
-    print('--->', excel_path)
+    print('--->', EXCEL_PATH)
 
 
 if __name__ == '__main__':
@@ -347,3 +351,6 @@ if __name__ == '__main__':
         main(stock_id, k_period='d', limit=90)
     else:
         main(stock_id[:5], k_period='d')
+
+    process_sync = Sync_qq_docs()
+    process_sync.start_sync()

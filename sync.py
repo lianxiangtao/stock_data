@@ -5,27 +5,21 @@ Created on Sun May 15 15:39:36 2022
 @author: lianxiangtao
 """
 
-from fake_useragent import UserAgent
+import datetime
+import os
+import platform
+import re
+import time
+
+import win32con
+import win32gui
+from bs4 import BeautifulSoup
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import Chrome, DesiredCapabilities
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
-
-import os
-import platform
-import time
-import pandas as pd
-from PIL import Image
-
-import re
-import xmltodict
-import json
-import datetime
-from getdata import urljoin
-from bs4 import BeautifulSoup
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 # 用户名
@@ -33,9 +27,11 @@ USERNAME = os.environ.get("USERNAME")
 # chrome 用户资料文件夹
 PATH_USER_DATA = rf"C:/Users/{USERNAME}/AppData/Local/Google/Chrome/User Data"
 # chromedriver 路径
-PATH_CHROMEDRIVER = rf"C:/Program Files (x86)/Google/Chrome/Application/chromedriver.exe"
-# QRcode 保存文件夹
-QRCODE_PATH = rf'qrcode/qrcode.png'
+PATH_CHROMEDRIVER = r"C:/Program Files (x86)/Google/Chrome/Application/chromedriver.exe"
+# QRcode 保存文件
+QRCODE_PATH = r'qrcode/qrcode.png'
+# 结果文件夹
+SAVE_PATH = r'result/'
 
 def open_browser(proxy=None, if_desired_capabilities=False):
     u_system = platform.system()  # 系统平台
@@ -122,6 +118,7 @@ def close_browser(driver):
     else:
         pass
 
+
 class Sync_qq_docs():
     # https://docs.qq.com/desktop/
     def __init__(self):
@@ -153,12 +150,20 @@ class Sync_qq_docs():
         img_dirver = self.browser.find_elements(by=By.XPATH, value=xpath_qrcode)
         if img_dirver:
             save_status = img_dirver[0].screenshot(QRCODE_PATH)
-            print('二维码保存成功')
+            print(f'二维码保存成功 save_status:{save_status}')
         else:
             print('二维码保存失败')
 
     def qrcode_invalid(self):
         """判断二维码是否失效"""
+        try:
+            timeStruct = time.localtime(os.path.getmtime(QRCODE_PATH))
+            filetime = time.strftime('%Y-%m-%d %H:%M:%S', timeStruct)
+            timedetla = datetime.datetime.now() - \
+                datetime.datetime.strptime(filetime, '%Y-%m-%d %H:%M:%S')
+            return True if timedetla.total_seconds() > 60 else False
+        except Exception:
+            return True
         try:
             ele_qrcode_invalid = self.browser.find_element(
                 by=By.XPATH, value='//div[@class="qrcode-invalid-tips"]')
@@ -177,6 +182,7 @@ class Sync_qq_docs():
             WebDriverWait(self.browser, 5).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@class="wechat-qrcode"]'))
             )
+            time.sleep(1)
         except Exception:
             pass
 
@@ -195,17 +201,17 @@ class Sync_qq_docs():
                 self.qrcode_save()  # 保存二维码
             time.sleep(5)
 
-    def login(self, browser):
+    def login(self):
         '''登录'''
-        browser.maximize_window()
-        self.bget(browser, 'https://docs.qq.com/')  # 腾讯文档官网
+        self.browser.maximize_window()
+        self.bget(self.browser, 'https://docs.qq.com/')  # 腾讯文档官网
         # 点击登录按钮
-        if browser.current_url != 'https://docs.qq.com/desktop/':
-            browser.find_element(by=By.XPATH,
-                                 value='//button[@class="login-btn"]').click()
+        if self.browser.current_url != 'https://docs.qq.com/desktop/':
+            self.browser.find_element(by=By.XPATH,
+                                      value='//button[@class="login-btn"]').click()
 
         # 等待60s直到二维码加载
-        WebDriverWait(browser, 60).until(
+        WebDriverWait(self.browser, 60).until(
             EC.presence_of_element_located((By.XPATH, '//*[@class="wechat-qrcode"]'))
         )
 
@@ -214,169 +220,71 @@ class Sync_qq_docs():
             print('自动登录成功')
         else:
             self.qrcode_process()
+        time.sleep(2)
 
-        return browser
+    def get_result_mtime_lastest(self):
+        filelist = os.listdir(SAVE_PATH)
+        if not filelist:
+            print('文件夹内无最新文件')
+            return
+        file_mt = [os.path.getmtime(os.path.join(SAVE_PATH, file))
+                   for file in filelist]
+        mtime_max = max(file_mt)
+        filename_mt_max = filelist[file_mt.index(mtime_max)]
+        filepath_mt_max = os.path.join(SAVE_PATH, filename_mt_max)
+        abspath_filepath_mt_max = os.path.abspath(filepath_mt_max)
+        return abspath_filepath_mt_max, filename_mt_max
 
-    # def start_requests(self, browser, fid):
-    #     '''
-    #     最新发表帖子
-    #     '''
-    #     df_url = []
-    #     for page in range(1, 10):
-    #         print(page)
-    #         self.logger.info('----page {}----'.format(page))
-    #         data = {'mod': 'forumdisplay', 'fid': fid, 'orderby': 'dateline',
-    #                 'filter': 'author', 'page': page}
-    #         base_url = 'http://www.haokouzi.com/forum.php?'
-    #         self.bget(browser, base_url + self.join_params(data))
-    #         source = browser.page_source
-    #         df_info, status_stop = self.getinfo(source)
-    #         df_url.append(df_info)
-    #         if status_stop == 1 or (page == 1 and df_info.empty):
-    #             break
-    #     self.logger.info('----帖子获取停止----')
-    #     df_url = pd.concat(df_url, ignore_index=True)
-    #     time.sleep(1)
-    #     return df_url
+    def file_upload_manager(self, realpath):
+        time.sleep(2)
+        dialog = win32gui.FindWindow('#32770', '打开')  # 对话框  这里的值即上一步winspy检测到的值
+        ComboBoxEx32 = win32gui.FindWindowEx(dialog, 0, 'ComboBoxEx32', None)
+        ComboBox = win32gui.FindWindowEx(ComboBoxEx32, 0, 'ComboBox', None)
+        Edit = win32gui.FindWindowEx(ComboBox, 0, 'Edit', None)  # 上面三句依次寻找对象，直到找到输入框Edit对象的句柄
+        button = win32gui.FindWindowEx(dialog, 0, 'Button', None)  # 确定按钮Button
+        win32gui.SendMessage(Edit, win32con.WM_SETTEXT, None, realpath)  # 往输入框输入绝对地址
+        win32gui.SendMessage(dialog, win32con.WM_COMMAND, 1, button)  # 按button
+        time.sleep(2)
 
-    def getid(self, urltext):
-        try:
-            cms_id = re.findall('tid=(\d+)', urltext)[0]
-            return cms_id
-        except Exception:
-            return None
+    def wait_upload(self, filename):
+        check_times = 0
+        while check_times < 60:
+            source = self.browser.page_source
+            soup = BeautifulSoup(source, 'lxml')
+            ele_filebox = soup.find('div', class_='ReactVirtualized__Grid__'
+                                    'innerScrollContainer')
+            filename_lastest = ele_filebox.find('span', class_='title').string
+            if filename_lastest == os.path.splitext(filename)[0]:
+                print('上传成功')
+                return
+            time.sleep(1)
+            check_times += 1
+            print(f'等待上传成功---->{check_times}')
 
-    # def getinfo(self, html):
-    #     """提取BBS帖子链接"""
-    #     # BeautifulSoup/xmltodict都无法解析，坑爹网站的代表
-    #     regex = '<a href="(.*?)".*?class="s xst">(.*?)</a>'  # 提取帖子链接
-    #     reg_info = re.findall(regex, html)
-    #     # 提取帖子发帖时间
-    #     regex_date = r'<a href="http://www.haokouzi.com/home.php\?mod=space&amp;uid=\d+".*?<em><span.*?>(.*?)</span></em>'
-    #     reg_info_date = re.findall(regex_date, html, re.S)
-    #     # 规范提取时间
-    #     reg_info_date = [re.findall('\d+-\d+-\d+', q)[0] for q in reg_info_date]
-    #     reg_info_date = [datetime.datetime.strptime(t, '%Y-%m-%d') for t in reg_info_date]
-
-    #     df_info = pd.DataFrame(reg_info, columns=['url', 'title'])
-    #     df_info['url'] = df_info['url'].apply(lambda x: unquote_url(x))  # 去除特殊字符
-    #     # df_info['publish_time'] = reg_info_date
-    #     df_info['cms_id'] = df_info['url'].apply(self.getid)  # 提取cms_id
-    #     df_info = df_info[df_info['cms_id'].notnull()]
-    #     df_info = df_info.drop_duplicates(['cms_id'], ignore_index=True)
-    #     self.logger.info('共识别新闻条数{}个'.format(df_info.shape[0]))
-    #     # 对已经保存在库中的新闻进行剔除，不纳入获取范围
-    #     has_exist_id = get_exist_id('cms_id', 'fk_data.t_news_haokouzi',
-    #                                 df_info['cms_id'].tolist())
-    #     df_info_fin = df_info[~df_info['cms_id'].isin(
-    #         pd.DataFrame(has_exist_id)['cms_id'])].reset_index(drop=1)
-    #     self.logger.info('入库检验剔除后新闻条数{}个'.format(df_info_fin.shape[0]))
-    #     # 若帖子不在近48小时内，则停止爬取帖子，status_stop=1
-    #     status_stop = 1 if datetime.datetime.now()-datetime.timedelta(days=2) \
-    #         > min(reg_info_date) else 0
-    #     return df_info_fin, status_stop
-
-    # def get_article_body(self, source):
-    #     """提取文章主体段落"""
-    #     regex_sub = '(?<=post_body).*(?=//初始化反作弊)'  # 提取文章主体
-    #     body = re.findall(regex_sub, re.sub('[\t\n\r\f\v]', '', source))[0]
-    #     idx = body.rfind('<!--结束-->')
-    #     body = body[idx:] if idx != -1 else body
-
-    #     regex = '<p.*?>(.*?)</p>'  # 提取正文段落
-    #     reg_info = ''.join(re.findall(regex, body))
-    #     # 剔除无关段落
-    #     reg_info = article_cleaner(reg_info)
-
-    #     t1 = '特别声明：以上内容'
-    #     reg_info = reg_info[:reg_info.rfind(t1)] if reg_info.rfind(t1) != -1 else reg_info
-    #     t2 = 'Notice: The content above'
-    #     reg_info = reg_info[:reg_info.rfind(t2)] if reg_info.rfind(t2) != -1 else reg_info
-
-    #     return reg_info
-
-    # def get_news_report(self, browser, data):
-    #     """获取每个新闻链接内容"""
-    #     if data.empty:
-    #         return {}
-
-    #     self.logger.info('待爬取新闻链接{}个'.format(data.shape[0]))
-    #     res_details = []
-    #     for q in range(len(data)):
-    #         try:
-    #             if q % 5 == 0:  # 5次休眠2s
-    #                 time.sleep(2)
-    #             url = data['url'][q]
-    #             self.logger.info('url:{}, q:{}'.format(url, q))
-    #             self.bget(browser, url)
-    #             source = browser.page_source
-    #             soup = BeautifulSoup(source, 'lxml')
-
-    #             res = {}
-
-    #             # 标题 url
-    #             res['title'] = str(soup.find('span', id="thread_subject").string)
-    #             res['url'] = url
-
-    #             # 发布时间
-    #             reg_info = soup.find('em', id=re.compile("authorposton"))
-    #             try:
-    #                 res['publish_time'] = reg_info.span['title']
-    #             except Exception:
-    #                 res['publish_time'] = re.findall('\d+-\d+-\d+ \d+:\d+:\d+', reg_info.string)[0]
-
-    #             # 作者
-    #             user_url = soup.find_all('div', class_="authi")[0].a['href']
-    #             res['author'] = user_url[user_url.rfind('uid=')+len('uid='):]
-
-    #             # 阅读量 评论量
-    #             reg_info = soup.find_all('span', class_="xi1")
-    #             res['read_cnt'] = str(reg_info[0].string) if reg_info else None
-    #             res['comments_cnt'] = str(reg_info[1].string) if reg_info else None
-
-    #             # cms_id
-    #             res['cms_id'] = data['cms_id'][q]
-
-    #             # 文章正文
-    #             reg_info = str(soup.find('td', class_="t_f"))
-    #             regex = ['本帖最后.*?编辑',
-    #                      '\d+-\d+-\d+ \d+:\d+ 上传',
-    #                      '\xa0',
-    #                      '\d+天前.上传',
-    #                      '下载附件',
-    #                      '保存到相册',
-    #                      '\w+\.(png|jpg|jpeg|gif) \(.*? (KB|MB), 下载次数: \d+\)',
-    #                      '来自(苹果|安卓)APP客户端']
-    #             res['article'] = article_cleaner(reg_info, regex) if reg_info else None
-
-    #             res_details.append(res)
-    #         except Exception:
-    #             self.logger.error('url:{}, q:{}, 报错:'.format(url, q),
-    #                               exc_info=True)
-    #             res_details.append({})
-
-    #     return res_details
+    def upload(self):
+        '''
+        上传
+        '''
+        # 取最新结果文件绝对路径
+        filepath_abspath, filename = self.get_result_mtime_lastest()
+        xpath_btn_upload = '/html/body/div[1]/div[2]/div[2]/div[1]/div/div/div/' \
+            'div[1]/div/div[1]/button[2]'
+        # 点击导入按钮
+        self.browser.find_element(by=By.XPATH, value=xpath_btn_upload).click()
+        self.file_upload_manager(filepath_abspath)  # 文件管理器选择文件
+        # 点击确定
+        xpath_btn_ensure = '/html/body/div[9]/div/div[2]/div/div[4]/button[2]/div'
+        self.browser.find_element(by=By.XPATH, value=xpath_btn_ensure).click()
+        # 等待上传成功
+        self.wait_upload(filename)
 
     def start_sync(self):
         self.browser = open_browser()
 
-        self.browser = self.login(self.browser)
-        df_url_fid38 = self.start_requests(self.browser, 38)  # 信用贷交流模块 fid=38
-        df_url_fid39 = self.start_requests(self.browser, 39)  # 网贷问答模块 fid=39
-        df_url_fid44 = self.start_requests(self.browser, 44)  # 口子分享模块 fid=44
-        df_url = pd.concat([df_url_fid38, df_url_fid39, df_url_fid44], ignore_index=1)
-        df_news = self.get_news_report(self.browser, df_url)
+        self.login()  # 登录
+        self.upload()  # 上传
 
-        df_news = pd.DataFrame(df_news)
-        df_res_fin = df_news
-
-        if df_res_fin.empty:
-            return None
-        df_res_fin = df_res_fin.where(df_res_fin != '', None)
-        df_res_fin = df_res_fin[df_res_fin['cms_id'].notnull()].reset_index(drop=1)
-        df_res_fin['create_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        return df_res_fin
+        close_browser(self.browser)
 
 
 if __name__ == '__main__':
